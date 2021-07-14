@@ -419,4 +419,15 @@ const (
 
 const (
 	baseTwoIndex = 2
+	baseTenIndex = 10
+)
+
+const (
+	badIgnore = '.' // always ignore this bad
+	bad01     = '?'
+	bad02     = '!'
+)
+
+const (
+	forbiddenR01 = '\\'
 )

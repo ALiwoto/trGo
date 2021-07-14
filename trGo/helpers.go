@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	ws "github.com/ALiwoto/StrongStringGo/strongStringGo"
+	"github.com/ALiwoto/trGo/trGo/trLang"
 )
 
 // https://telegra.ph/Lang-Codes-03-19-3
@@ -45,6 +46,10 @@ func Translate(lang *Lang, to, text string) (*WotoTr, error) {
 
 func TranslateD(fr, to, text string) (*WotoTr, error) {
 	uText := strings.TrimSpace(text)
+	if ws.IsEmpty(&uText) {
+		return nil, errors.New("[function TranslateD] " +
+			"in package [trGo]: " + " text cannot be empty")
+	}
 
 	var err error
 	text, err = trGoogle(fr, to, text)
@@ -108,8 +113,10 @@ func TrGnuTxt(fr, to, text string) (string, error) {
 //  > see also: https://grpc.io/docs/
 //  > see also: https://developers.google.com/protocol-buffers
 func parseGData(wTr *WotoTr) (*WotoTr, error) {
-	text := wTr.OriginalText
-	test := ws.Split(text, ws.BracketOpen, ws.Bracketclose)
+	text := ws.Qss(wTr.OriginalText)
+	text.LockSpecialHigh()
+
+	myStrs := text.SplitStr(ws.BracketOpen, ws.Bracketclose)
 	original := make([]string, ws.BaseIndex)
 	accepted := func(v string) bool {
 		if v == NonEscapeN {
@@ -154,25 +161,31 @@ func parseGData(wTr *WotoTr) (*WotoTr, error) {
 		return errI != nil
 	}
 
-	for _, s := range test {
-		if accepted(s) {
-			original = append(original, s)
+	tmpV := ws.EMPTY
+	for _, s := range myStrs {
+		s.UnlockSpecialHigh()
+		tmpV = s.GetValue()
+		if accepted(tmpV) {
+			original = append(original, tmpV)
 		}
 	}
 
 	parseGparams(original, wTr)
 
-	if wTr.WrongFrom {
+	if wTr.wrongFrom {
 		var err error
-		text, err = trGoogle(wTr.From, wTr.To, wTr.UserText)
+		var textStr string
+		textStr, err = trGoogle(wTr.From, wTr.To, wTr.UserText)
 		if err != nil {
 			return nil, err
 		}
 
 		w := WotoTr{
-			OriginalText: text,
+			UserText:     wTr.UserText,
+			OriginalText: textStr,
 			From:         wTr.From,
 			To:           wTr.To,
+			HasWrongFrom: true,
 		}
 		wTr = &w
 
@@ -184,6 +197,7 @@ func parseGData(wTr *WotoTr) (*WotoTr, error) {
 
 		return wTr, nil
 	}
+
 	return wTr, nil
 }
 
@@ -278,7 +292,7 @@ func AparseGparamsOLD(value []string, wTr *WotoTr) []string {
 		final = append(final, current)
 	}
 
-	log.Println(value[1])
+	//log.Println(value[1])
 	return final
 }
 
@@ -296,21 +310,11 @@ func parseGparams(value []string, wTr *WotoTr) {
 	// \n,\"ja\",1,\"en\",
 	// \"konnichiwa. ohayou minna \",\"en\",\"ja\",true
 	// \n",null,null,null,"generic"
-	if wTr.Road == nil {
-		wTr.Road = make(map[int]bool)
+	log.Println(wTr.OriginalText)
+	if isWrongFrom(value, wTr) {
+		return
 	}
 
-	index := ws.BaseIndex
-
-	for _, c := range wTr.OriginalText {
-		if string(c) == ws.LineEscape {
-			wTr.Road[index] = false
-		}
-		if string(c) == ws.Point {
-			wTr.Road[index] = true
-		}
-		index++
-	}
 	//tmp := strings.Join(value, DY_WOTO_TEXT)
 
 	//tmp = strings.ReplaceAll(tmp, NullN, ws.EMPTY)
@@ -319,7 +323,7 @@ func parseGparams(value []string, wTr *WotoTr) {
 	//tmp = strings.ReplaceAll(tmp, NullCValue, ws.EMPTY)
 	//tmp = strings.ReplaceAll(tmp, NeQ, ws.EMPTY)
 	//strs := strings.Split(tmp, DY_WOTO_TEXT)
-	strMap := make(map[string]bool)
+	//strMap := make(map[string]bool)
 	lastStr := ws.EMPTY
 	p1Set := false  // is original Pronunciation already set??
 	p2Set := false  // is translated Pronunciation already set??
@@ -333,6 +337,8 @@ func parseGparams(value []string, wTr *WotoTr) {
 		tmp = current
 		if current == lastStr || current == NullAndCama {
 			continue
+		} else {
+			lastStr = tmp
 		}
 
 		if !wCheck {
@@ -355,8 +361,6 @@ func parseGparams(value []string, wTr *WotoTr) {
 			// the same algorithm or not (but we are sure that
 			// the order of the data WILL NOT change in the future,
 			// in ProtoBuff, order of data matters after all.)
-			log.Println(value[2])
-
 			continue
 		} else if !p1Set {
 			p1Set = true
@@ -392,7 +396,7 @@ func parseGparams(value []string, wTr *WotoTr) {
 			// the same algorithm or not (but we are sure that
 			// the order of the data WILL NOT change in the future,
 			// in ProtoBuff, order of data matters after all.)
-			log.Println(value[2])
+			//log.Println(value[2])
 
 			continue
 		}
@@ -411,61 +415,65 @@ func parseGparams(value []string, wTr *WotoTr) {
 					continue
 				}
 				tmpStr = strings.TrimSpace(tmpStr)
-				if ws.IsEmpty(&tmpStr) {
+				if ws.IsEmpty(&tmpStr) || wTr.alreadyExists(tmpStr) {
 					continue
 				}
+
 				if wTr.From != wTr.To {
 					if strings.EqualFold(tmpStr, wTr.UserText) {
 						continue
 					}
 				}
-				wTr.TranslatedText = append(wTr.TranslatedText, tmpStr)
+				//logStr(tmpStr)
+				wTr.Translations = append(wTr.Translations, tmpStr)
 			}
 		} else {
 			break
 		}
 
-		if strings.HasPrefix(current, DoubleQS) {
-			current = strings.TrimPrefix(current, DoubleQS)
-		} else {
-			lastStr = ws.EMPTY
-			continue
-		}
+	}
+}
 
-		if strings.Contains(current, MiddleWave) {
-			current = strings.Split(current, MiddleWave)[ws.BaseOneIndex]
-		}
-
-		if strings.HasSuffix(current, DoubleQSP) {
-			// optional
-			current = strings.TrimSuffix(current, DoubleQSP)
-
-			if strMap[current] {
-				continue
-			} else {
-				strMap[current] = true
-			}
-
-			lastStr = tmp
-		}
-
-		if strings.HasSuffix(current, DoubleQS) {
-			current = strings.TrimSuffix(current, DoubleQS)
-		} else {
-			lastStr = ws.EMPTY
-			continue
-		}
-
-		if strMap[current] {
-			continue
-		} else {
-			strMap[current] = true
-		}
-
-		lastStr = tmp
-
+func isWrongFrom(value []string, wTr *WotoTr) bool {
+	if isSimpleWrongFrom(value, wTr) {
+		return true
 	}
 
+	if len(value) <= baseTenIndex {
+		return value == nil
+	}
+
+	return false
+}
+
+func isSimpleWrongFrom(value []string, wTr *WotoTr) bool {
+	nullCount := ws.BaseIndex
+	for _, current := range value {
+		if nullCount >= baseTwoIndex {
+			txt, find := extractTextStr(current)
+			if !find {
+				continue
+			}
+
+			if trLang.IsLang(txt) {
+				short := trLang.ExtractShortLang(txt)
+				if short != nil {
+					if !strings.EqualFold(*short, wTr.From) {
+						wTr.wrongFrom = true
+						wTr.From = *short
+						return true
+					}
+				}
+			}
+		}
+
+		current = strings.TrimSpace(current)
+		if strings.EqualFold(NullAndCama, current) {
+			nullCount++
+		}
+	}
+
+	return false
 }
 
 func setWrongNess(value string, wTr *WotoTr) {
@@ -515,7 +523,7 @@ func setWrongNess(value string, wTr *WotoTr) {
 		CorrectedParts: parts,
 		CorrectedValue: whole,
 	}
-	wTr.HasWrongNess = true
+	wTr.HasWrongness = true
 }
 
 func isWrongness(value string) bool {
@@ -672,24 +680,13 @@ func trGoogle(fr, to, text string) (str string, err error) {
 }
 
 func purify(text string) string {
-	if strings.Contains(text, ws.BracketOpen) {
-		text = strings.ReplaceAll(text, ws.BracketOpen, ws.ParaOpen)
-	}
-	if strings.Contains(text, ws.Bracketclose) {
-		text = strings.ReplaceAll(text, ws.Bracketclose, ws.ParaClose)
-	}
-	if strings.Contains(text, ws.Star) {
-		text = strings.ReplaceAll(text, ws.Star, ws.EMPTY)
-	}
-	if strings.Contains(text, ws.LineEscape) {
-		text = strings.ReplaceAll(text, ws.LineEscape, ws.SPACE_VALUE)
-	}
-	if strings.Contains(text, ws.R_ESCAPE) {
-		text = strings.ReplaceAll(text, ws.R_ESCAPE, ws.SPACE_VALUE)
-	}
-	if strings.Contains(text, ws.DoubleQ) {
-		text = strings.ReplaceAll(text, ws.DoubleQ, ws.DoubleQJ)
-	}
+	text = strings.ReplaceAll(text, ws.BracketOpen, ws.ParaOpen)
+	text = strings.ReplaceAll(text, ws.Bracketclose, ws.ParaClose)
+	text = strings.ReplaceAll(text, ws.Star, ws.EMPTY)
+	text = strings.ReplaceAll(text, ws.LineEscape, ws.SPACE_VALUE)
+	text = strings.ReplaceAll(text, ws.R_ESCAPE, ws.SPACE_VALUE)
+	text = strings.ReplaceAll(text, ws.DoubleQ, ws.DoubleQJ)
+
 	return text
 }
 
@@ -711,16 +708,18 @@ func extractTextStr(value string) (str string, find bool) {
 		return
 	}
 
+	pre := false
 	for i, s := range value {
 		if find {
-			if s == '\\' {
+			// check if s is a forbidden rune or not (such as '\\')
+			if isForbiddenR(s) {
 				if i == l {
 					return ws.EMPTY, false // not found
 				}
-				if value[i+ws.BaseOneIndex] == '"' {
+				if value[i+ws.BaseOneIndex] == ws.CHAR_STR {
 					return // found
 				}
-			} else if s == '"' {
+			} else if s == ws.CHAR_STR {
 				// it means before it, there wasn't any
 				// back slash character, so we are safe!
 				return // found
@@ -728,9 +727,28 @@ func extractTextStr(value string) (str string, find bool) {
 			str += string(s)
 			continue
 		}
-		if s == ws.CHAR_STR {
-			find = true
+		if isForbiddenR(s) {
+			if !pre {
+				pre = true
+			}
+		} else if pre {
+			if s == ws.CHAR_STR {
+				find = true
+			}
 		}
 	}
-	return
+
+	return // not found
+}
+
+func isBadIgnore(r rune) bool {
+	return r == badIgnore
+}
+
+func isBad(r rune) bool {
+	return r == bad01 || r == bad02
+}
+
+func isForbiddenR(r rune) bool {
+	return r == forbiddenR01
 }

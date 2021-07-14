@@ -108,3 +108,7 @@ const (
 	L_zh_TW = "zh_TW" // Chinese
 	L_zu    = "zu"    // Zulu
 )
+
+const (
+	MaxLenght = 20 // the maximum length of a language string
+)

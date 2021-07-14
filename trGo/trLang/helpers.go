@@ -6,7 +6,10 @@
 package trLang
 
 import (
+	"strings"
 	"sync"
+
+	ws "github.com/ALiwoto/StrongStringGo/strongStringGo"
 )
 
 var langList map[string]string  // lang list map
@@ -153,6 +156,8 @@ func initLangReseve() {
 	}
 
 	for k, v := range langList {
+		k = strings.ToLower(k)
+		v = strings.ToLower(v)
 		if langListR[v] != k {
 			langListR[v] = k
 		}
@@ -165,16 +170,39 @@ func initLangReseve() {
 // language or not.
 func IsLang(value string) bool {
 	l := len(value)
-	if l <= 1 || l > len(L_zh_CN) {
+	if l <= ws.BaseIndex || l > len(L_zh_CN) {
 		return false
 	}
+
 	initLang()
 	s := langList[value]
 
-	if s == "" {
+	if ws.IsEmpty(&s) {
 		s = langListR[value]
-		return s != ""
+		return !ws.IsEmpty(&s)
 	}
 
 	return true
+}
+
+func ExtractShortLang(value string) *string {
+	l := len(value)
+	if l <= ws.BaseIndex || l >= MaxLenght {
+		return nil
+	}
+
+	initLang()
+
+	value = strings.ToLower(value)
+	s := langList[value]
+	if ws.IsEmpty(&s) {
+		s = langListR[value]
+		if ws.IsEmpty(&s) {
+			return nil
+		}
+
+		return &s
+	}
+
+	return &value
 }

@@ -41,13 +41,23 @@ type WotoTr struct {
 	TranslatedPronunciation string
 	UserText                string
 	OriginalText            string
-	TranslatedText          []string
+	Translations            []string
 	From                    string
 	To                      string
 	Corrected               *Corrected
-	HasWrongNess            bool
-	WrongFrom               bool
-	Road                    map[int]bool
+	HasWrongness            bool
+
+	// internal wrong from.
+	// when returning final value to the user,
+	// this field SHOULD be false.
+	wrongFrom bool
+
+	// public wrong from.
+	// if 'From' in user's inpur is not correct,
+	// this field will be true.
+	HasWrongFrom bool
+
+	Road map[int]bool
 }
 
 type Corrected struct {
