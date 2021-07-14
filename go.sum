@@ -1,0 +1,5 @@
+github.com/ALiwoto/StrongStringGo v0.0.0-20210713174528-50a692191bd5 h1:16r/oXNHFhs8CQGkVn/xVYfM9Lz1NutBvoHTjxbBXcw=
+github.com/ALiwoto/StrongStringGo v0.0.0-20210713174528-50a692191bd5/go.mod h1:66rSGLc1wsW4n/xqfVRHMwUivOoFdJ6aehAkPXbjaZE=
+golang.org/x/text v0.3.6 h1:aRYxNxv6iGQlyVaZmk6ZgYEDa+Jg18DxebPSrd6bg1M=
+golang.org/x/text v0.3.6/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
+golang.org/x/tools v0.0.0-20180917221912-90fa682c2a6e/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
