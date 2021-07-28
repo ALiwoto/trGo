@@ -1,2 +1,2 @@
 # trGo
-A translattion package with a lot of features and implementations.
+A translation package with a lot of features and implementations.
