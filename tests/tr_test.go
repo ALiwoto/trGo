@@ -76,7 +76,7 @@ func TestWrongTr(t *testing.T) {
 	//tr, err := trGo.TranslateD("fr", "ru", "колыхаться")
 	//tr, err := trGo.TranslateText("fr", "ru", "Kolykhat'sya")
 	//tr, err := trGo.TranslateText("ja", "en", "kimi ha nanimono da?")
-	tr, err := trGo.TranslateText("ja", "en", "yasashii")
+	tr, err := trGo.TranslateText("ja", "en", "jaa watashi no tame ni hito wo korosu?")
 
 	if err != nil {
 		t.Fatal(err)
@@ -146,3 +146,34 @@ func TestTrLang(t *testing.T) {
 }
 
 //---------------------------------------------------------
+
+//======================SIMPLE-TESTS========================
+//---------------------------------------------------------
+//-----------------Tests related to simple tr func---------
+//---------------------------------------------------------
+
+func TestSimple(t *testing.T) {
+	// after separator, always search for kind {?}
+	//tr, err := trGo.TranslateD("en", "ja", "what are you doing here??\n I hat you!!")
+	//tr, err := trGo.TranslateD("en", "ja", "what")
+	//tr, err := trGo.TranslateD("ja", "en", "yasashii")
+	//tr, err := trGo.SimpleTranslate("en", "ru", "Hello, what are you doing here, mother?")
+	tr, err := trGo.SimpleTranslate("en", "ru", "wha should I do rigt now?")
+	//tr, err := trGo.TranslateD("en", "ru", "wha shold I do rigt now?")
+	//tr, err := trGo.TranslateD("en", "ru", "wha shold I do rigt nuw?")
+	//tr, err := trGo.TranslateD("en", "ru", "wha shold I do rigt nuw? \n I really love you!")
+	//tr, err := trGo.TranslateD("en", "ru", "organaization")
+	//tr, err := trGo.TranslateD("en", "ru", "\n\r\n     \n\n     \n")
+	//tr, err := trGo.TranslateD("ja", "ru", "こんにちわ") // брух
+	//tr, err := trGo.TranslateD("ru", "en", "брух")
+	//tr, err := trGo.TranslateD("sr", "en", "брух")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	log.Println(tr)
+
+	//t.Log("TranslatedPronunciation: " + tr.TranslatedPronunciation)
+	//log.Println("TranslatedPronunciation: " + tr.TranslatedPronunciation)
+}
