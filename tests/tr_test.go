@@ -1,6 +1,9 @@
 package tests
 
 import (
+	"io/ioutil"
+	"log"
+	"net/http"
 	"testing"
 
 	"github.com/ALiwoto/trGo/trGo"
@@ -19,14 +22,16 @@ func TestCorrectTr(t *testing.T) {
 	//tr, err := trGo.TranslateD("en", "ja", "what are you doing here??\n I hat you!!")
 	//tr, err := trGo.TranslateD("en", "ja", "what")
 	//tr, err := trGo.TranslateD("ja", "en", "yasashii")
-	//tr, err := trGo.TranslateD("en", "ru", "Hello, what are you doing here, mother?")
+	tr, err := trGo.TranslateText("en", "ru", "Hello, what are you doing here, mother?")
 	//tr, err := trGo.TranslateD("en", "ru", "wha should I do rigt now?")
 	//tr, err := trGo.TranslateD("en", "ru", "wha shold I do rigt now?")
-	tr, err := trGo.TranslateD("en", "ru", "wha shold I do rigt nuw?")
+	//tr, err := trGo.TranslateD("en", "ru", "wha shold I do rigt nuw?")
 	//tr, err := trGo.TranslateD("en", "ru", "wha shold I do rigt nuw? \n I really love you!")
 	//tr, err := trGo.TranslateD("en", "ru", "organaization")
 	//tr, err := trGo.TranslateD("en", "ru", "\n\r\n     \n\n     \n")
-	//tr, err := trGo.TranslateD("ja", "ru", "こんにちわ")
+	//tr, err := trGo.TranslateD("ja", "ru", "こんにちわ") // брух
+	//tr, err := trGo.TranslateD("ru", "en", "брух")
+	//tr, err := trGo.TranslateD("sr", "en", "брух")
 
 	if err != nil {
 		t.Fatal(err)
@@ -34,9 +39,11 @@ func TestCorrectTr(t *testing.T) {
 
 	for i, tl := range tr.Translations {
 		t.Log(i, ": "+tl)
+		log.Println(i, ": "+tl)
 	}
 
 	t.Log("TranslatedPronunciation: " + tr.TranslatedPronunciation)
+	log.Println("TranslatedPronunciation: " + tr.TranslatedPronunciation)
 }
 
 //---------------------------------------------------------
@@ -47,7 +54,7 @@ func TestCorrectTr(t *testing.T) {
 //---------------------------------------------------------
 
 func TestWrongTr(t *testing.T) {
-	//tr, err := trGo.TranslateD("en", "ja", "what are you doing here??\n I hat you!!")
+	//tr, err := trGo.TranslateText("en", "ja", "what are you doing here??\n I hat you!!")
 	//tr, err := trGo.TranslateD("en", "ja", "what")
 	//tr, err := trGo.TranslateD("auto", "en", "yasashii")
 	//tr, err := trGo.TranslateD("en", "ru", "Hello, what are you doing here, mother?")
@@ -67,17 +74,22 @@ func TestWrongTr(t *testing.T) {
 	//tr, err := trGo.TranslateD("ja", "ru", "波") // колыхаться
 	//tr, err := trGo.TranslateD("ja", "ru", "колыхаться")
 	//tr, err := trGo.TranslateD("fr", "ru", "колыхаться")
-	tr, err := trGo.TranslateD("fr", "ru", "Kolykhat'sya")
+	//tr, err := trGo.TranslateText("fr", "ru", "Kolykhat'sya")
+	//tr, err := trGo.TranslateText("ja", "en", "kimi ha nanimono da?")
+	tr, err := trGo.TranslateText("ja", "en", "yasashii")
 
 	if err != nil {
 		t.Fatal(err)
+		log.Fatal(err)
 	}
 
 	for i, tl := range tr.Translations {
 		t.Log(i, ": "+tl)
+		log.Println(i, ": "+tl)
 	}
 
 	t.Log("TranslatedPronunciation: " + tr.TranslatedPronunciation)
+	log.Println("TranslatedPronunciation: " + tr.TranslatedPronunciation)
 }
 
 //---------------------------------------------------------
@@ -88,6 +100,22 @@ func TestWrongTr(t *testing.T) {
 //---------------------------------------------------------
 
 func TestTrLang(t *testing.T) {
+	//xhr.open('GET', 'https://translate.google.com/translate_a/single?client=t&sl=auto&tl=' + toLang + '&hl=en&dt=bd&dt=ex&dt=ld&dt=md&dt=qc&dt=rw&dt=rm&dt=ss&dt=t&dt=at&ie=UTF-8&oe=UTF-8&source=btn&ssel=0&tsel=0&kc=0&tk=5&q=' + encodeURIComponent(text));
+
+	resp, err := http.Get("https://translate.google.com/translate_a/single?client=t&sl=auto&tl=ja&hl=en&dt=bd&dt=ex&dt=ld&dt=md&dt=qc&dt=rw&dt=rm&dt=ss&dt=t&dt=at&ie=UTF-8&oe=UTF-8&source=btn&ssel=0&tsel=0&kc=0&tk=5&q=hello")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println(string(body))
+
 	short := trLang.ExtractShortLang("eNglish")
 	if short == nil {
 		t.Fatal("short was nil!")

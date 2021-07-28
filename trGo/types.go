@@ -40,12 +40,18 @@ type WotoTr struct {
 	// Pronunciation of the translated text
 	TranslatedPronunciation string
 	UserText                string
-	OriginalText            string
-	Translations            []string
-	From                    string
-	To                      string
-	Corrected               *Corrected
-	HasWrongness            bool
+
+	// originalText is the original data recieved from google's
+	// server (which is in protobuf's format)
+	originalText string
+
+	// Translations is an array of translated string recieved from
+	// google's servers
+	Translations []string
+	From         string
+	To           string
+	Corrected    *Corrected
+	HasWrongness bool
 
 	// internal wrong from.
 	// when returning final value to the user,
@@ -57,7 +63,7 @@ type WotoTr struct {
 	// this field will be true.
 	HasWrongFrom bool
 
-	Road map[int]bool
+	Kind []string
 }
 
 type Corrected struct {

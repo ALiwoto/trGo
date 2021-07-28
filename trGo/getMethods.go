@@ -23,3 +23,35 @@ func (w *WotoTr) alreadyExists(value string) bool {
 	}
 	return false
 }
+
+//---------------------------------------------------------
+
+func (l *Lang) GetBest() *LangDetect {
+	if l.IsEmpty() {
+		return nil
+	}
+
+	var best *LangDetect
+
+	for _, d := range l.Data.Detections {
+		if d.Reliable {
+			if best != nil {
+				if d.Confidence >= best.Confidence {
+					best = &d
+				}
+			} else {
+				best = &d
+			}
+		}
+	}
+
+	if best.Confidence < MinConfidence {
+		return nil
+	}
+
+	return best
+}
+
+func (l *Lang) IsEmpty() bool {
+	return l.Data == nil || len(l.Data.Detections) == 0
+}

@@ -206,3 +206,16 @@ func ExtractShortLang(value string) *string {
 
 	return &value
 }
+
+func RemoveShortsWithStrs(value string) string {
+	if ws.IsEmpty(&value) || len(value) <= ws.BaseOneIndex {
+		return value
+	}
+
+	for c := range langList {
+		value = strings.ReplaceAll(value,
+			ws.STR_SIGN+c+ws.STR_SIGN, ws.EMPTY)
+	}
+
+	return value
+}

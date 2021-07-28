@@ -5,6 +5,8 @@
 
 package trGo
 
+var MinConfidence float32 = 8.0
+
 // detect language constants keys and values.
 const (
 	//-----------------------------------------------------
@@ -365,8 +367,11 @@ const (
 	CeeE           = DoubleBackSlash + "u003c"
 	QuetUnicode    = "u0026#39;"
 	StrAndCama     = DoubleQS + CAMA
+	StringAndCama  = DoubleQ + CAMA
 	CamaAndStr     = CAMA + DoubleQS
 	NullAndCama    = NullStr + CAMA
+	TwoCama        = CAMA + CAMA
+	TwoStr         = DoubleQ + DoubleQ
 	CamaNullCama   = CAMA + NullStr + CAMA
 )
 

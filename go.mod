@@ -20,5 +20,5 @@ module github.com/ALiwoto/trGo
 go 1.15
 
 require (
-	github.com/ALiwoto/StrongStringGo v1.0.2
+	github.com/ALiwoto/StrongStringGo v1.0.3
 )

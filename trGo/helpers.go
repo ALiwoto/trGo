@@ -26,25 +26,32 @@ import (
 
 // Translate will translate the specified text value
 // tp english.
-func Translate(lang *Lang, to, text string) (*WotoTr, error) {
+func TranslateIt(lang *Lang, to, text string) (*WotoTr, error) {
 	if ws.IsEmpty(&text) {
 		return nil, errors.New("text cannot be empty")
+	}
+
+	toptr := trLang.ExtractShortLang(to)
+	if toptr == nil {
+		return nil, errors.New("language " + to + " is unrecognized")
+	} else {
+		to = *toptr
 	}
 
 	if lang == nil {
 		lang = DetectLanguage(text)
 	}
 
-	if lang.Data == nil || len(lang.Data.Detections) == ws.BaseIndex {
-		TranslateD(ws.AutoStr, to, text)
+	best := lang.GetBest()
+
+	if best == nil || !best.Reliable {
+		return translateD(ws.AutoStr, to, text)
 	}
 
-	l1 := lang.Data.Detections[ws.BaseIndex]
-
-	return TranslateD(l1.TheLang, to, text)
+	return translateD(best.TheLang, to, text)
 }
 
-func TranslateD(fr, to, text string) (*WotoTr, error) {
+func translateD(fr, to, text string) (*WotoTr, error) {
 	uText := strings.TrimSpace(text)
 	if ws.IsEmpty(&uText) {
 		return nil, errors.New("[function TranslateD] " +
@@ -59,7 +66,7 @@ func TranslateD(fr, to, text string) (*WotoTr, error) {
 
 	w := WotoTr{
 		UserText:     uText,
-		OriginalText: text,
+		originalText: text,
 		From:         fr,
 		To:           to,
 	}
@@ -67,7 +74,33 @@ func TranslateD(fr, to, text string) (*WotoTr, error) {
 	return parseGData(&w)
 }
 
-func TrGnuTxt(fr, to, text string) (string, error) {
+func Translate(to, text string) (*WotoTr, error) {
+	return TranslateIt(nil, to, text)
+}
+
+func TranslateText(fr, to, text string) (*WotoTr, error) {
+	frptr := trLang.ExtractShortLang(fr)
+	if frptr == nil {
+		return nil, errors.New("language " + to + " is unrecognized")
+	} else {
+		fr = *frptr
+	}
+
+	wTr, err := Translate(to, text)
+	if err != nil {
+		return nil, err
+	}
+
+	if !wTr.HasWrongFrom && wTr.From != fr {
+		wTr.HasWrongFrom = true
+	} else if wTr.HasWrongFrom && wTr.From == fr {
+		wTr.HasWrongFrom = false
+	}
+
+	return wTr, nil
+}
+
+func SimpleTranslate(fr, to, text string) (string, error) {
 	urlG := fmt.Sprintf(gnuHostUrl, fr, to, url.QueryEscape(text))
 	resp, err := http.Get(urlG)
 	if err != nil {
@@ -113,8 +146,8 @@ func TrGnuTxt(fr, to, text string) (string, error) {
 //  > see also: https://grpc.io/docs/
 //  > see also: https://developers.google.com/protocol-buffers
 func parseGData(wTr *WotoTr) (*WotoTr, error) {
-	text := ws.Qss(wTr.OriginalText)
-	text.LockSpecialHigh()
+	text := ws.Qss(wTr.originalText)
+	text.LockSpecial()
 
 	myStrs := text.SplitStr(ws.BracketOpen, ws.Bracketclose)
 	original := make([]string, ws.BaseIndex)
@@ -163,12 +196,14 @@ func parseGData(wTr *WotoTr) (*WotoTr, error) {
 
 	tmpV := ws.EMPTY
 	for _, s := range myStrs {
-		s.UnlockSpecialHigh()
+		s.UnlockSpecial()
 		tmpV = s.GetValue()
 		if accepted(tmpV) {
 			original = append(original, tmpV)
 		}
 	}
+
+	log.Println(original)
 
 	parseGparams(original, wTr)
 
@@ -182,7 +217,7 @@ func parseGData(wTr *WotoTr) (*WotoTr, error) {
 
 		w := WotoTr{
 			UserText:     wTr.UserText,
-			OriginalText: textStr,
+			originalText: textStr,
 			From:         wTr.From,
 			To:           wTr.To,
 			HasWrongFrom: true,
@@ -202,101 +237,6 @@ func parseGData(wTr *WotoTr) (*WotoTr, error) {
 }
 
 // There are no key-value pairs in raw protobuf, just values assigned to field numbers. With batchexecute, I think Google is mapping protobuf messages to JSON in a special way. There is documentation on this, but it doesn’t quite match up to what we see here. This is how I think the above message would be mapped to JSON in batchexecute
-func AparseGparamsOLD(value []string, wTr *WotoTr) []string {
-	//null,
-	//null,
-	// \"ja\"
-	// \n,null,
-	// null,\"Konnichiwa. Ohayou Minna\",null,null,null,
-	// \"konnichiwa。\",
-	// \"konnichiwa。\",\"こんにちは。\"
-	// \"Ohayou Minna\",
-	// \"Ohayou Minna\",\"みんなおはよう\"
-	// \n,\"ja\",1,\"en\",
-	// \"konnichiwa. ohayou minna \",\"en\",\"ja\",true
-	// \n",null,null,null,"generic"
-	if wTr.Road == nil {
-		wTr.Road = make(map[int]bool)
-	}
-
-	index := ws.BaseIndex
-
-	for _, c := range wTr.OriginalText {
-		if string(c) == ws.LineEscape {
-			wTr.Road[index] = false
-		}
-		if string(c) == ws.Point {
-			wTr.Road[index] = true
-		}
-		index++
-	}
-	tmp := strings.Join(value, DY_WOTO_TEXT)
-
-	tmp = strings.ReplaceAll(tmp, NullN, ws.EMPTY)
-	tmp = strings.ReplaceAll(tmp, NullCValueR, ws.EMPTY)
-	tmp = strings.ReplaceAll(tmp, GenericStr, ws.EMPTY)
-	tmp = strings.ReplaceAll(tmp, NullCValue, ws.EMPTY)
-	tmp = strings.ReplaceAll(tmp, NeQ, ws.EMPTY)
-	strs := strings.Split(tmp, DY_WOTO_TEXT)
-	final := make([]string, ws.BaseIndex)
-	strMap := make(map[string]bool)
-	lastStr := ws.EMPTY
-	for _, current := range strs {
-		tmp = current
-		if current == lastStr {
-			continue
-		}
-
-		if strings.HasPrefix(current, DoubleQS) {
-			current = strings.TrimPrefix(current, DoubleQS)
-		} else {
-			lastStr = ws.EMPTY
-			continue
-		}
-
-		if strings.Contains(current, MiddleWave) {
-			current = strings.Split(current, MiddleWave)[ws.BaseOneIndex]
-		}
-
-		if strings.HasSuffix(current, DoubleQSP) {
-			// optional
-			current = strings.TrimSuffix(current, DoubleQSP)
-
-			if strMap[current] {
-				continue
-			} else {
-				strMap[current] = true
-			}
-
-			final = append(final, current)
-			lastStr = tmp
-			continue
-		}
-
-		if strings.HasSuffix(current, DoubleQS) {
-			current = strings.TrimSuffix(current, DoubleQS)
-		} else {
-			lastStr = ws.EMPTY
-			continue
-		}
-
-		if strMap[current] {
-			continue
-		} else {
-			strMap[current] = true
-		}
-
-		lastStr = tmp
-		// log.Println(current)
-		// log.Println(strMap)
-		final = append(final, current)
-	}
-
-	//log.Println(value[1])
-	return final
-}
-
-// There are no key-value pairs in raw protobuf, just values assigned to field numbers. With batchexecute, I think Google is mapping protobuf messages to JSON in a special way. There is documentation on this, but it doesn’t quite match up to what we see here. This is how I think the above message would be mapped to JSON in batchexecute
 func parseGparams(value []string, wTr *WotoTr) {
 	//null,
 	//null,
@@ -310,7 +250,7 @@ func parseGparams(value []string, wTr *WotoTr) {
 	// \n,\"ja\",1,\"en\",
 	// \"konnichiwa. ohayou minna \",\"en\",\"ja\",true
 	// \n",null,null,null,"generic"
-	log.Println(wTr.OriginalText)
+	//log.Println(wTr.OriginalText)
 	if isWrongFrom(value, wTr) {
 		return
 	}
@@ -406,9 +346,47 @@ func parseGparams(value []string, wTr *WotoTr) {
 				tSet = true
 				continue
 			}
+
 			if strings.HasSuffix(current, NullAndCama) {
-				continue
-			} else if strings.HasSuffix(current, StrAndCama) {
+				log.Println(current)
+				for strings.HasSuffix(current, NullAndCama) {
+					current = strings.TrimSuffix(current, NullAndCama)
+				}
+				log.Println(current)
+				if ws.IsEmpty(&current) {
+					continue
+				}
+
+				if !strings.HasPrefix(current, ws.STR_SIGN) ||
+					!strings.HasSuffix(current, StringAndCama) {
+					continue
+				}
+
+				log.Println("success: " + current)
+			}
+
+			current = strings.TrimSpace(current)
+			if strings.HasPrefix(current, CAMA) &&
+				strings.HasSuffix(current, CAMA) {
+				//tmpCheck := strings.ReplaceAll(current, wTr.To, ws.EMPTY)
+				//tmpCheck = strings.ReplaceAll(tmpCheck, wTr.From, ws.EMPTY)
+				tmpCheck := trLang.RemoveShortsWithStrs(current)
+				//tmpCheck = strings.ReplaceAll(tmpCheck, TwoStr, ws.EMPTY)
+				tmpCheck = strings.ReplaceAll(tmpCheck, TwoCama, ws.EMPTY)
+				tmpCheck = strings.ReplaceAll(tmpCheck, ws.SPACE_VALUE,
+					ws.EMPTY)
+				if ws.IsEmpty(&tmpCheck) {
+					continue
+				}
+
+				_, err := strconv.Atoi(tmpCheck)
+				if err == nil {
+					continue
+				}
+
+			}
+
+			if strings.HasSuffix(current, StringAndCama) {
 
 				tmpStr, find := extractTextStr(current)
 				if !find {
@@ -420,10 +398,16 @@ func parseGparams(value []string, wTr *WotoTr) {
 				}
 
 				if wTr.From != wTr.To {
-					if strings.EqualFold(tmpStr, wTr.UserText) {
+					if strings.EqualFold(tmpStr, wTr.UserText) ||
+						strings.EqualFold(tmpStr, wTr.OriginalPronunciation) {
 						continue
 					}
+
+					if strings.EqualFold(tmpStr, wTr.OriginalPronunciation) {
+						wTr.TranslatedPronunciation = ws.EMPTY
+					}
 				}
+
 				//logStr(tmpStr)
 				wTr.Translations = append(wTr.Translations, tmpStr)
 			}
@@ -526,13 +510,22 @@ func setWrongNess(value string, wTr *WotoTr) {
 	wTr.HasWrongness = true
 }
 
+func IsKind(value string) bool {
+	return value == "adjective"
+}
+
 func isWrongness(value string) bool {
 	return strings.Contains(value, WrongNessOpen) &&
 		strings.Contains(value, WrongNessClose)
 }
 
 func canBePronunciation(value string) bool {
-	return strings.HasSuffix(value, CamaNullCama)
+	if strings.HasSuffix(value, CamaNullCama) {
+		value = strings.TrimSuffix(value, CamaNullCama)
+		return len(value) >= baseTwoIndex
+	}
+
+	return false
 }
 
 func isSeparator(value string, wTr *WotoTr) bool {
@@ -587,52 +580,6 @@ func getPronunciation(value string) (str string, find bool) {
 
 	return strings.TrimSpace(final), find
 }
-
-/* OLD_VERSION
-
-func arrangeParams(values []string, wTr *WotoTr) {
-	index := ws.BaseIndex
-	for i, current := range values {
-		if i == ws.BaseIndex {
-			if trLang.IsLang(current) {
-				if current != wTr.From {
-					wTr.WrongFrom = true
-					wTr.From = current
-					return
-				}
-			}
-		}
-		if strings.Contains(current, WrongNessOpen) {
-			wTr.HasWrongNess = true
-			current = strings.ReplaceAll(current, WrongNessOpen, ws.EMPTY)
-			current = strings.ReplaceAll(current, WrongNessClose, ws.EMPTY)
-			current = strings.ReplaceAll(current, WrongNessClose, ws.EMPTY)
-			current = strings.ReplaceAll(current, QuetUnicode, ws.SingleQ)
-			current = strings.TrimPrefix(current, ws.BackSlash)
-			current = strings.ReplaceAll(current, ws.BackSlash, ws.EMPTY)
-			//wTr.CorrectedValue = current
-		} else {
-			if wTr.Road != nil {
-				if !wTr.Road[index] {
-					current += ws.LineEscape
-				} else {
-					current = strings.TrimPrefix(current, ws.LineEscape)
-					current = strings.TrimSuffix(current, ws.LineEscape)
-					current += ws.Point
-				}
-			}
-
-			current = strings.ReplaceAll(current, ThreeE, ws.EMPTY)
-			current = strings.ReplaceAll(current, QuetUnicode, ws.SingleQ)
-			current = strings.ReplaceAll(current, CeeE, ws.EMPTY)
-			current = strings.ReplaceAll(current, ws.DoubleBackSlash, ws.EMPTY)
-			current = strings.ReplaceAll(current, ws.BackSlash, ws.EMPTY)
-			wTr.TranslatedText = append(wTr.TranslatedText, current)
-		}
-	}
-}
-
-*/
 
 func trGoogle(fr, to, text string) (str string, err error) {
 	body := strings.NewReader(googleFQ(fr, to, purify(text)))
@@ -703,6 +650,7 @@ func googleFQ(fr, to, text string) string {
 }
 
 func extractTextStr(value string) (str string, find bool) {
+	log.Println(value)
 	l := len(value) - ws.BaseOneIndex
 	if l == ws.BaseIndex {
 		return
@@ -735,10 +683,12 @@ func extractTextStr(value string) (str string, find bool) {
 			if s == ws.CHAR_STR {
 				find = true
 			}
+		} else if s == ws.CHAR_STR && !pre {
+			find = true
 		}
 	}
 
-	return // not found
+	return // found
 }
 
 func isBadIgnore(r rune) bool {
